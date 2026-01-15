@@ -65,13 +65,12 @@ class PromptDB:
         import random, string
         return ''.join(random.choices(string.ascii_lowercase + string.digits, k=10))
     
-    def save_prompt(self, text, model=None, category=None, tags=None):
+    def save_prompt(self, text, saver_id=None, model=None, category=None, tags=None):
         """
-        Save prompt logic:
-        - If _last_saved_id exists and is valid → overwrite it
+        Save prompt logic with per-saver tracking:
+        - Each saver_id has its own last_saved tracking
+        - If saver_id's last_saved exists → overwrite it
         - Otherwise → create new (or find by hash if duplicate)
-        
-        Call reset_last_saved() to force next save as new.
         """
         if not text or not text.strip():
             return None
@@ -79,6 +78,13 @@ class PromptDB:
         text = text.strip()
         text_hash = self._hash(text)
         now = datetime.now().isoformat()
+        
+        # Initialize per-saver tracking if needed
+        if not hasattr(self, '_saver_last_ids'):
+            self._saver_last_ids = {}
+        
+        # Use saver_id or 'default' for tracking
+        track_key = saver_id or 'default'
         
         # Process tags
         tag_list = []
@@ -90,9 +96,10 @@ class PromptDB:
                     if t not in self.data["tags"]:
                         self.data["tags"].append(t)
         
-        # If we have a last_saved_id, overwrite it
-        if self._last_saved_id and self._last_saved_id in self.data["prompts"]:
-            pid = self._last_saved_id
+        # If we have a last_saved_id for this saver, overwrite it
+        last_id = self._saver_last_ids.get(track_key)
+        if last_id and last_id in self.data["prompts"]:
+            pid = last_id
             p = self.data["prompts"][pid]
             p["text"] = text
             p["hash"] = text_hash
@@ -105,7 +112,7 @@ class PromptDB:
             p["updated_at"] = now
             p["used_count"] = p.get("used_count", 0) + 1
             self._save()
-            print(f"[PS] Overwritten prompt {pid}")
+            print(f"[PS] Overwritten prompt {pid} (saver: {track_key})")
             return pid
         
         # Check if prompt with same hash already exists
@@ -120,9 +127,9 @@ class PromptDB:
                     p["tags"] = tag_list
                 p["updated_at"] = now
                 p["used_count"] = p.get("used_count", 0) + 1
-                self._last_saved_id = pid
+                self._saver_last_ids[track_key] = pid
                 self._save()
-                print(f"[PS] Updated existing prompt {pid} (same hash)")
+                print(f"[PS] Updated existing prompt {pid} (same hash, saver: {track_key})")
                 return pid
         
         # Create new
@@ -140,15 +147,20 @@ class PromptDB:
             "updated_at": now,
             "used_count": 1
         }
-        self._last_saved_id = pid
+        self._saver_last_ids[track_key] = pid
         self._save()
-        print(f"[PS] Created new prompt {pid}")
+        print(f"[PS] Created new prompt {pid} (saver: {track_key})")
         return pid
     
-    def reset_last_saved(self):
-        """Reset last_saved_id - next save will create new or find by hash"""
-        self._last_saved_id = None
-        print("[PS] Reset - next save will be new")
+    def reset_last_saved(self, saver_id=None):
+        """Reset last_saved_id for specific saver - next save will create new"""
+        if not hasattr(self, '_saver_last_ids'):
+            self._saver_last_ids = {}
+        
+        track_key = saver_id or 'default'
+        if track_key in self._saver_last_ids:
+            del self._saver_last_ids[track_key]
+        print(f"[PS] Reset saver: {track_key}")
     
     def get_prompts(self, search=None, category=None, model=None, tag=None, rating_min=None, limit=50, sort="updated_at"):
         results = []
@@ -371,16 +383,20 @@ class SmartTextNode:
         return {
             "required": {
                 "text": ("STRING", {"multiline": True, "default": ""}),
+            },
+            "hidden": {
+                "unique_id": "UNIQUE_ID",
             }
         }
     
-    RETURN_TYPES = ("STRING",)
-    RETURN_NAMES = ("text",)
+    RETURN_TYPES = ("STRING", "STRING")
+    RETURN_NAMES = ("text", "saver_id")
     FUNCTION = "process"
     CATEGORY = "Prompting-System"
     
-    def process(self, text):
-        return (text.strip() if text else "",)
+    def process(self, text, unique_id=None):
+        # Pass unique_id as saver_id for tracking
+        return (text.strip() if text else "", str(unique_id) if unique_id else "")
 
 
 class PromptSaverNode:
@@ -394,6 +410,7 @@ class PromptSaverNode:
                 "text": ("STRING", {"forceInput": True}),
             },
             "optional": {
+                "saver_id": ("STRING", {"forceInput": True, "default": ""}),
                 "category": (cats, {"default": "none"}),
                 "model": (models, {"default": "none"}),
                 "tags": ("STRING", {"default": ""}),
@@ -406,15 +423,16 @@ class PromptSaverNode:
     CATEGORY = "Prompting-System"
     OUTPUT_NODE = True
     
-    def save(self, text, category="none", model="none", tags=""):
+    def save(self, text, saver_id="", category="none", model="none", tags=""):
         if text and text.strip():
             pid = db.save_prompt(
                 text.strip(),
+                saver_id=saver_id if saver_id else None,
                 model=model if model != "none" else None,
                 category=category if category != "none" else None,
                 tags=tags
             )
-            print(f"[PS] Saved prompt {pid}")
+            print(f"[PS] Saved prompt {pid} (saver: {saver_id})")
         return (text,)
 
 
@@ -654,9 +672,11 @@ async def ps_capture(request):
 
 @routes.post("/ps/reset-last-saved")
 async def ps_reset(request):
-    """Reset last_saved_id - next save will create new prompt"""
-    db.reset_last_saved()
-    return web.json_response({"success": True})
+    """Reset last_saved_id for specific saver - next save will create new prompt"""
+    data = await request.json() if request.body_exists else {}
+    saver_id = data.get('saver_id')
+    db.reset_last_saved(saver_id)
+    return web.json_response({"success": True, "saver_id": saver_id})
 
 @routes.get("/ps/download-outputs")
 async def ps_download_outputs(request):
@@ -685,6 +705,49 @@ async def ps_download_outputs(request):
             'Content-Disposition': f'attachment; filename="outputs_{datetime.now().strftime("%Y%m%d_%H%M%S")}.zip"'
         }
     )
+
+@routes.post("/ps/upload-lora")
+async def ps_upload_lora(request):
+    """Upload LoRA file to models/loras folder"""
+    try:
+        reader = await request.multipart()
+        field = await reader.next()
+        
+        if field.name != 'file':
+            return web.json_response({"success": False, "error": "No file field"}, status=400)
+        
+        filename = field.filename
+        if not filename.endswith(('.safetensors', '.pt', '.bin', '.ckpt')):
+            return web.json_response({"success": False, "error": "Invalid file type"}, status=400)
+        
+        # Get loras directory
+        lora_dirs = folder_paths.get_folder_paths("loras")
+        if not lora_dirs:
+            return web.json_response({"success": False, "error": "No loras folder found"}, status=500)
+        
+        lora_dir = lora_dirs[0]
+        os.makedirs(lora_dir, exist_ok=True)
+        
+        filepath = os.path.join(lora_dir, filename)
+        
+        # Write file
+        size = 0
+        with open(filepath, 'wb') as f:
+            while True:
+                chunk = await field.read_chunk()
+                if not chunk:
+                    break
+                size += len(chunk)
+                f.write(chunk)
+        
+        return web.json_response({
+            "success": True, 
+            "filename": filename,
+            "size": size,
+            "path": filepath
+        })
+    except Exception as e:
+        return web.json_response({"success": False, "error": str(e)}, status=500)
 
 
 # ============================================================================
