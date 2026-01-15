@@ -401,49 +401,124 @@ app.registerExtension({
                         saveState({ search: currentSearch, category: currentCategory, model: currentModel, tag: currentTag, perPage });
                     };
                     
-                    // Show edit modal
+                    // Show edit modal with chip-based tag editor
                     const showEditModal = (prompt) => {
                         const overlay = document.createElement('div');
                         overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;';
                         
                         const modal = document.createElement('div');
-                        modal.style.cssText = 'background: #2a2a3a; border-radius: 12px; padding: 20px; width: 350px; max-width: 90%;';
+                        modal.style.cssText = 'background: #2a2a3a; border-radius: 12px; padding: 20px; width: 380px; max-width: 90%;';
                         
+                        // Current tags state
+                        let currentTags = [...(prompt.tags || [])];
+                        
+                        // Build modal HTML
                         modal.innerHTML = `
                             <h3 style="margin: 0 0 16px 0; color: #cba6f7; font-size: 16px;">Edit Prompt</h3>
                             <div style="margin-bottom: 12px;">
                                 <label style="display: block; font-size: 12px; color: #888; margin-bottom: 4px;">Category</label>
-                                <select id="edit-category" style="width: 100%; padding: 8px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px;">
+                                <select id="edit-category" style="width: 100%; padding: 10px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px;">
                                     <option value="">None</option>
                                     ${allCategories.map(c => `<option value="${c}" ${prompt.category === c ? 'selected' : ''}>${c}</option>`).join('')}
                                 </select>
                             </div>
                             <div style="margin-bottom: 12px;">
                                 <label style="display: block; font-size: 12px; color: #888; margin-bottom: 4px;">Model</label>
-                                <select id="edit-model" style="width: 100%; padding: 8px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px;">
+                                <select id="edit-model" style="width: 100%; padding: 10px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px;">
                                     <option value="">None</option>
                                     ${allModels.map(m => `<option value="${m}" ${prompt.model === m ? 'selected' : ''}>${m}</option>`).join('')}
                                 </select>
                             </div>
                             <div style="margin-bottom: 16px;">
-                                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 4px;">Tags (comma separated)</label>
-                                <input id="edit-tags" type="text" value="${(prompt.tags || []).join(', ')}" style="width: 100%; padding: 8px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+                                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 4px;">Tags (type and press comma or Enter)</label>
+                                <div id="tags-container" style="background: #333; border: 1px solid #444; border-radius: 6px; padding: 8px; min-height: 40px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;">
+                                    <input id="tag-input" type="text" placeholder="Add tag..." style="flex: 1; min-width: 80px; padding: 6px; background: transparent; border: none; color: #fff; font-size: 13px; outline: none;">
+                                </div>
                             </div>
                             <div style="display: flex; gap: 8px;">
-                                <button id="edit-cancel" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">Cancel</button>
-                                <button id="edit-save" style="flex: 1; padding: 10px; background: #89b4fa; border: none; border-radius: 6px; color: #1e1e2e; font-weight: bold; cursor: pointer; font-size: 13px;">Save</button>
+                                <button id="edit-cancel" style="flex: 1; padding: 12px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">Cancel</button>
+                                <button id="edit-save" style="flex: 1; padding: 12px; background: #89b4fa; border: none; border-radius: 6px; color: #1e1e2e; font-weight: bold; cursor: pointer; font-size: 13px;">Save</button>
                             </div>
                         `;
                         
                         overlay.appendChild(modal);
                         document.body.appendChild(overlay);
                         
+                        const tagsContainer = modal.querySelector('#tags-container');
+                        const tagInput = modal.querySelector('#tag-input');
+                        
+                        // Render tag chips
+                        const renderTags = () => {
+                            // Remove existing chips (keep input)
+                            Array.from(tagsContainer.querySelectorAll('.tag-chip')).forEach(c => c.remove());
+                            
+                            // Add chips before input
+                            currentTags.forEach(tag => {
+                                const chip = document.createElement('span');
+                                chip.className = 'tag-chip';
+                                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(137,180,250,0.25); color: #89b4fa; border-radius: 4px; font-size: 12px;';
+                                chip.innerHTML = `${tag} <span style="cursor: pointer; opacity: 0.7; font-size: 14px;">×</span>`;
+                                chip.querySelector('span').onclick = () => {
+                                    currentTags = currentTags.filter(t => t !== tag);
+                                    renderTags();
+                                };
+                                tagsContainer.insertBefore(chip, tagInput);
+                            });
+                        };
+                        
+                        // Add tag function
+                        const addTag = (text) => {
+                            const tag = text.trim().toLowerCase();
+                            if (tag && !currentTags.includes(tag)) {
+                                currentTags.push(tag);
+                                renderTags();
+                            }
+                            tagInput.value = '';
+                        };
+                        
+                        // Initial render
+                        renderTags();
+                        
+                        // Handle input events
+                        tagInput.onkeydown = (e) => {
+                            if (e.key === ',' || e.key === 'Enter') {
+                                e.preventDefault();
+                                addTag(tagInput.value);
+                            } else if (e.key === 'Backspace' && !tagInput.value && currentTags.length > 0) {
+                                // Remove last tag on backspace if input is empty
+                                currentTags.pop();
+                                renderTags();
+                            }
+                        };
+                        
+                        // Also handle comma in input value (for paste)
+                        tagInput.oninput = () => {
+                            if (tagInput.value.includes(',')) {
+                                const parts = tagInput.value.split(',');
+                                parts.forEach((part, i) => {
+                                    if (i < parts.length - 1) {
+                                        addTag(part);
+                                    } else {
+                                        tagInput.value = part;
+                                    }
+                                });
+                            }
+                        };
+                        
+                        // Click on container focuses input
+                        tagsContainer.onclick = () => tagInput.focus();
+                        
                         overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
                         modal.querySelector('#edit-cancel').onclick = () => overlay.remove();
                         modal.querySelector('#edit-save').onclick = async () => {
+                            // Add any remaining text as tag
+                            if (tagInput.value.trim()) {
+                                addTag(tagInput.value);
+                            }
+                            
                             const category = modal.querySelector('#edit-category').value;
                             const model = modal.querySelector('#edit-model').value;
-                            const tags = modal.querySelector('#edit-tags').value;
+                            const tags = currentTags.join(',');
                             
                             await psApi(`/prompts/${prompt.id}`, {
                                 method: 'PUT',
@@ -839,24 +914,6 @@ app.registerExtension({
             };
         }
         
-        // Metadata Reader
-        if (nodeData.name === "PS_MetadataReader") {
-            const onNodeCreated = nodeType.prototype.onNodeCreated;
-            
-            nodeType.prototype.onNodeCreated = function() {
-                if (onNodeCreated) onNodeCreated.apply(this, arguments);
-                
-                const btnContainer = document.createElement('div');
-                btnContainer.style.cssText = 'padding: 4px;';
-                
-                const dlBtn = document.createElement('button');
-                dlBtn.textContent = '📥 Download Workflow JSON';
-                dlBtn.style.cssText = 'width: 100%; padding: 8px; background: linear-gradient(135deg, #89b4fa, #74c7ec); border: none; border-radius: 4px; color: #1e1e2e; font-weight: 600; cursor: pointer; font-size: 12px;';
-                dlBtn.onclick = () => toast('Check prompts output', 'info');
-                btnContainer.appendChild(dlBtn);
-                
-                this.addDOMWidget('ps_download', 'div', btnContainer, { serialize: false });
-            };
-        }
+        // Metadata Reader - no extra UI needed
     }
 });

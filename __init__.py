@@ -41,7 +41,7 @@ class PromptDB:
                 with open(self.file, 'r', encoding='utf-8') as f:
                     data = json.load(f)
                     data.setdefault("prompts", {})
-                    data.setdefault("categories", ["general", "character", "scene", "style", "clothing", "pose"])
+                    data.setdefault("categories", [])
                     data.setdefault("models", [])
                     data.setdefault("tags", [])
                     return data
@@ -49,7 +49,7 @@ class PromptDB:
                 pass
         return {
             "prompts": {},
-            "categories": ["general", "character", "scene", "style", "clothing", "pose"],
+            "categories": [],
             "models": [],
             "tags": []
         }
@@ -71,6 +71,7 @@ class PromptDB:
         - Each saver_id has its own last_saved tracking
         - If saver_id's last_saved exists → overwrite it
         - Otherwise → create new (or find by hash if duplicate)
+        - Tags are STACKED (added to existing), not replaced
         """
         if not text or not text.strip():
             return None
@@ -86,15 +87,23 @@ class PromptDB:
         # Use saver_id or 'default' for tracking
         track_key = saver_id or 'default'
         
-        # Process tags
-        tag_list = []
+        # Process new tags
+        new_tags = []
         if tags:
             for t in tags.split(","):
                 t = t.strip().lower()
                 if t:
-                    tag_list.append(t)
+                    new_tags.append(t)
                     if t not in self.data["tags"]:
                         self.data["tags"].append(t)
+        
+        # Helper to merge tags (stack without duplicates)
+        def merge_tags(existing, new):
+            result = list(existing) if existing else []
+            for t in new:
+                if t not in result:
+                    result.append(t)
+            return result
         
         # If we have a last_saved_id for this saver, overwrite it
         last_id = self._saver_last_ids.get(track_key)
@@ -107,8 +116,9 @@ class PromptDB:
                 p["model"] = model
             if category and category != "none":
                 p["category"] = category
-            if tag_list:
-                p["tags"] = tag_list
+            # Stack tags instead of replacing
+            if new_tags:
+                p["tags"] = merge_tags(p.get("tags", []), new_tags)
             p["updated_at"] = now
             p["used_count"] = p.get("used_count", 0) + 1
             self._save()
@@ -123,8 +133,9 @@ class PromptDB:
                     p["model"] = model
                 if category and category != "none":
                     p["category"] = category
-                if tag_list:
-                    p["tags"] = tag_list
+                # Stack tags
+                if new_tags:
+                    p["tags"] = merge_tags(p.get("tags", []), new_tags)
                 p["updated_at"] = now
                 p["used_count"] = p.get("used_count", 0) + 1
                 self._saver_last_ids[track_key] = pid
@@ -140,7 +151,7 @@ class PromptDB:
             "hash": text_hash,
             "model": model if model and model != "none" else None,
             "category": category if category and category != "none" else None,
-            "tags": tag_list,
+            "tags": new_tags,
             "rating": None,
             "thumbnail": None,
             "created_at": now,
@@ -591,6 +602,7 @@ class MetadataCleanerNode:
                 "images": ("IMAGE",),
                 "mode": (["clean", "custom", "clone"], {"default": "clean"}),
                 "filename_prefix": ("STRING", {"default": "cleaned_"}),
+                "save": ("BOOLEAN", {"default": True}),
             },
             "optional": {
                 "source_image": ("IMAGE",),
@@ -604,13 +616,30 @@ class MetadataCleanerNode:
     CATEGORY = "Prompting-System"
     OUTPUT_NODE = True
     
-    def process(self, images, mode, filename_prefix, source_image=None, custom_metadata=""):
+    def process(self, images, mode, filename_prefix, save=True, source_image=None, custom_metadata=""):
         from PIL import Image
         from PIL.PngImagePlugin import PngInfo
         import numpy as np
         
+        if not save:
+            return (images, "Save disabled - images passed through")
+        
         output_dir = folder_paths.get_output_directory()
         
+        # Handle subfolder in filename_prefix (e.g., "Cleaner/IMG")
+        if '/' in filename_prefix or '\\' in filename_prefix:
+            # Normalize path separators
+            filename_prefix = filename_prefix.replace('\\', '/')
+            parts = filename_prefix.rsplit('/', 1)
+            if len(parts) == 2:
+                subfolder, prefix = parts
+                # Create subfolder(s) if needed
+                full_subfolder = os.path.join(output_dir, subfolder)
+                os.makedirs(full_subfolder, exist_ok=True)
+                output_dir = full_subfolder
+                filename_prefix = prefix
+        
+        saved_files = []
         for i in range(images.shape[0]):
             img_tensor = images[i]
             arr = 255. * img_tensor.cpu().numpy()
@@ -629,8 +658,9 @@ class MetadataCleanerNode:
                 counter += 1
             
             img.save(filepath, pnginfo=pnginfo)
+            saved_files.append(filename)
         
-        return (images, f"Saved {images.shape[0]} images (mode: {mode})")
+        return (images, f"Saved {len(saved_files)} images (mode: {mode})")
 
 
 # ============================================================================
