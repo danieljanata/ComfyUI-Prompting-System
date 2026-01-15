@@ -160,7 +160,7 @@ class PromptDB:
         }
         self._saver_last_ids[track_key] = pid
         self._save()
-        print(f"[PS] Created new prompt {pid} (saver: {track_key})")
+        print(f"[PS] Created new prompt {pid} (saver: {track_key}), _saver_last_ids now has {len(self._saver_last_ids)} entries")
         return pid
     
     def reset_last_saved(self, saver_id=None):
@@ -219,14 +219,25 @@ class PromptDB:
         if pid in self.data["prompts"]:
             self.data["prompts"][pid]["thumbnail"] = thumbnail_base64
             self._save()
+            print(f"[PS] Thumbnail set for prompt {pid}")
             return True
+        print(f"[PS] Cannot set thumbnail - prompt {pid} not found")
         return False
     
     def get_all_last_saved_ids(self):
         """Get all recently saved prompt IDs (for thumbnail assignment)"""
         if not hasattr(self, '_saver_last_ids'):
-            return []
-        return list(self._saver_last_ids.values())
+            self._saver_last_ids = {}
+        ids = list(self._saver_last_ids.values())
+        print(f"[PS] get_all_last_saved_ids: {ids} (from {len(self._saver_last_ids)} savers)")
+        return ids
+    
+    def register_saved_prompt(self, saver_id, prompt_id):
+        """Register a prompt as recently saved (for thumbnail assignment)"""
+        if not hasattr(self, '_saver_last_ids'):
+            self._saver_last_ids = {}
+        self._saver_last_ids[saver_id] = prompt_id
+        print(f"[PS] Registered: saver={saver_id} -> prompt={prompt_id}")
     
     def update_prompt(self, pid, model=None, category=None, tags=None):
         """Update prompt metadata"""
@@ -393,21 +404,25 @@ def create_thumbnail(image_path, size=64):
 
 
 def capture_last_output_image():
-    """Find most recent image in output dir and create thumbnail for all recently saved prompts"""
+    """Find most recent image in output dir (including subdirs) and create thumbnail for all recently saved prompts"""
     try:
+        import time
         output_dir = folder_paths.get_output_directory()
         latest = None
         latest_time = 0
         
-        for f in os.listdir(output_dir):
-            if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
-                fp = os.path.join(output_dir, f)
-                mt = os.path.getmtime(fp)
-                if mt > latest_time:
-                    latest_time = mt
-                    latest = fp
+        # Search recursively in output dir
+        for root, dirs, files in os.walk(output_dir):
+            for f in files:
+                if f.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                    fp = os.path.join(root, f)
+                    mt = os.path.getmtime(fp)
+                    if mt > latest_time:
+                        latest_time = mt
+                        latest = fp
         
-        if latest:
+        # Only process if image is recent (within last 30 seconds)
+        if latest and (time.time() - latest_time) < 30:
             # Get all recently saved prompt IDs
             recent_ids = db.get_all_last_saved_ids()
             if recent_ids:
@@ -415,8 +430,13 @@ def capture_last_output_image():
                 if thumb:
                     for pid in recent_ids:
                         db.set_thumbnail(pid, thumb)
-                    print(f"[PS] Thumbnail assigned to {len(recent_ids)} prompts")
+                    print(f"[PS] Thumbnail from {os.path.basename(latest)} assigned to {len(recent_ids)} prompts: {recent_ids}")
                     return True
+            else:
+                print(f"[PS] No recent prompt IDs to assign thumbnail to")
+        else:
+            if latest:
+                print(f"[PS] Latest image too old: {time.time() - latest_time:.1f}s ago")
     except Exception as e:
         print(f"[PS] Capture error: {e}")
     return False
