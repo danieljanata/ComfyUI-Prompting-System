@@ -1,5 +1,5 @@
 // ComfyUI-Prompting-System
-// Sidebar with pagination, LoRA upload, per-node save tracking
+// Sidebar with pagination, LoRA upload, per-node tracking, prompt editing
 
 import { app } from "../../scripts/app.js";
 import { api } from "../../scripts/api.js";
@@ -23,7 +23,7 @@ const psApi = async (path, opts = {}) => {
 const toast = (msg, type = "info") => {
     const colors = { success: "#a6e3a1", error: "#f38ba8", info: "#89b4fa" };
     const el = document.createElement("div");
-    el.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:10px 20px;border-radius:8px;z-index:10001;background:${colors[type]};color:#1e1e2e;font-size:12px;font-weight:500;`;
+    el.style.cssText = `position:fixed;bottom:20px;left:50%;transform:translateX(-50%);padding:12px 24px;border-radius:8px;z-index:10001;background:${colors[type]};color:#1e1e2e;font-size:13px;font-weight:500;`;
     el.textContent = msg;
     document.body.appendChild(el);
     setTimeout(() => el.remove(), 2000);
@@ -65,17 +65,17 @@ app.registerExtension({
                     const savedState = loadState();
                     
                     const container = document.createElement('div');
-                    container.style.cssText = 'padding: 12px; color: #fff; font-family: Arial, sans-serif;';
+                    container.style.cssText = 'padding: 14px; color: #fff; font-family: Arial, sans-serif;';
                     
                     // Header
                     const header = document.createElement('h3');
                     header.textContent = '✨ Prompt Browser';
-                    header.style.cssText = 'margin: 0 0 12px 0; color: #cba6f7; font-size: 15px; border-bottom: 1px solid #333; padding-bottom: 8px;';
+                    header.style.cssText = 'margin: 0 0 14px 0; color: #cba6f7; font-size: 17px; border-bottom: 1px solid #444; padding-bottom: 10px;';
                     container.appendChild(header);
                     
                     // Stats
                     const stats = document.createElement('div');
-                    stats.style.cssText = 'font-size: 11px; color: #888; margin-bottom: 10px;';
+                    stats.style.cssText = 'font-size: 13px; color: #888; margin-bottom: 12px;';
                     stats.textContent = 'Loading...';
                     container.appendChild(stats);
                     
@@ -84,14 +84,14 @@ app.registerExtension({
                     searchInput.type = 'text';
                     searchInput.placeholder = 'Search prompts...';
                     searchInput.value = savedState.search || '';
-                    searchInput.style.cssText = 'width: 100%; padding: 6px 8px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.1); border-radius: 5px; color: #fff; font-size: 11px; margin-bottom: 8px; box-sizing: border-box;';
+                    searchInput.style.cssText = 'width: 100%; padding: 10px 12px; background: rgba(255,255,255,0.05); border: 1px solid rgba(255,255,255,0.15); border-radius: 6px; color: #fff; font-size: 13px; margin-bottom: 10px; box-sizing: border-box;';
                     container.appendChild(searchInput);
                     
                     // Filters
                     const filtersRow = document.createElement('div');
-                    filtersRow.style.cssText = 'display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap;';
+                    filtersRow.style.cssText = 'display: flex; gap: 6px; margin-bottom: 12px; flex-wrap: wrap;';
                     
-                    const selectStyle = 'flex: 1; min-width: 70px; padding: 4px; background: #333; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 10px;';
+                    const selectStyle = 'flex: 1; min-width: 80px; padding: 8px; background: #333; border: 1px solid #444; border-radius: 5px; color: #fff; font-size: 12px;';
                     
                     const catSelect = document.createElement('select');
                     catSelect.style.cssText = selectStyle;
@@ -107,23 +107,23 @@ app.registerExtension({
                     
                     container.appendChild(filtersRow);
                     
-                    // Results list
+                    // Results list - scrollable
                     const resultsList = document.createElement('div');
-                    resultsList.style.cssText = 'max-height: 280px; overflow-y: auto;';
+                    resultsList.style.cssText = 'max-height: 400px; overflow-y: auto; margin-bottom: 10px;';
                     container.appendChild(resultsList);
                     
                     // Pagination
                     const paginationRow = document.createElement('div');
-                    paginationRow.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 8px; margin: 8px 0; font-size: 11px;';
+                    paginationRow.style.cssText = 'display: flex; align-items: center; justify-content: center; gap: 10px; margin: 10px 0; font-size: 13px;';
                     container.appendChild(paginationRow);
                     
-                    // Copy + Refresh row
+                    // Buttons row 1
                     const row1 = document.createElement('div');
-                    row1.style.cssText = 'display: flex; gap: 4px; margin-top: 10px; padding-top: 10px; border-top: 1px solid #333;';
+                    row1.style.cssText = 'display: flex; gap: 6px; margin-top: 12px; padding-top: 12px; border-top: 1px solid #444;';
                     
                     const copyBtn = document.createElement('button');
                     copyBtn.textContent = '📋 Copy';
-                    copyBtn.style.cssText = 'flex: 1; padding: 6px; background: linear-gradient(135deg, #89b4fa, #74c7ec); border: none; border-radius: 5px; color: #1e1e2e; font-weight: bold; cursor: pointer; font-size: 11px;';
+                    copyBtn.style.cssText = 'flex: 1; padding: 10px; background: linear-gradient(135deg, #89b4fa, #74c7ec); border: none; border-radius: 6px; color: #1e1e2e; font-weight: bold; cursor: pointer; font-size: 13px;';
                     copyBtn.onclick = () => {
                         if (selectedPromptText) {
                             navigator.clipboard.writeText(selectedPromptText);
@@ -136,17 +136,17 @@ app.registerExtension({
                     
                     const refreshBtn = document.createElement('button');
                     refreshBtn.textContent = '🔄';
-                    refreshBtn.style.cssText = 'padding: 6px 10px; background: rgba(255,255,255,0.1); border: none; border-radius: 5px; color: #fff; cursor: pointer;';
+                    refreshBtn.style.cssText = 'padding: 10px 14px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 14px;';
                     refreshBtn.onclick = () => loadData();
                     row1.appendChild(refreshBtn);
                     
                     container.appendChild(row1);
                     
-                    // WF + DB + Import row
+                    // Buttons row 2
                     const row2 = document.createElement('div');
-                    row2.style.cssText = 'display: flex; gap: 4px; margin-top: 4px;';
+                    row2.style.cssText = 'display: flex; gap: 6px; margin-top: 6px;';
                     
-                    const btnStyle2 = 'flex: 1; padding: 5px; background: rgba(255,255,255,0.1); border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 10px;';
+                    const btnStyle2 = 'flex: 1; padding: 8px; background: rgba(255,255,255,0.1); border: none; border-radius: 5px; color: #fff; cursor: pointer; font-size: 12px;';
                     
                     const wfBtn = document.createElement('button');
                     wfBtn.textContent = '📄 WF';
@@ -213,13 +213,13 @@ app.registerExtension({
                     
                     container.appendChild(row2);
                     
-                    // Output ZIP + LoRA upload row
+                    // Buttons row 3
                     const row3 = document.createElement('div');
-                    row3.style.cssText = 'display: flex; gap: 4px; margin-top: 4px;';
+                    row3.style.cssText = 'display: flex; gap: 6px; margin-top: 6px;';
                     
                     const outputZipBtn = document.createElement('button');
                     outputZipBtn.textContent = '📦 Outputs ZIP';
-                    outputZipBtn.style.cssText = 'flex: 1; padding: 5px; background: rgba(249,226,175,0.3); border: none; border-radius: 4px; color: #1e1e2e; cursor: pointer; font-size: 10px; font-weight: 500;';
+                    outputZipBtn.style.cssText = 'flex: 1; padding: 8px; background: rgba(249,226,175,0.3); border: none; border-radius: 5px; color: #1e1e2e; cursor: pointer; font-size: 12px; font-weight: 500;';
                     outputZipBtn.onclick = async () => {
                         toast('Creating ZIP...', 'info');
                         try {
@@ -240,7 +240,7 @@ app.registerExtension({
                     
                     const loraBtn = document.createElement('button');
                     loraBtn.textContent = '🎨 Upload LoRA';
-                    loraBtn.style.cssText = 'flex: 1; padding: 5px; background: rgba(203,166,247,0.3); border: none; border-radius: 4px; color: #1e1e2e; cursor: pointer; font-size: 10px; font-weight: 500;';
+                    loraBtn.style.cssText = 'flex: 1; padding: 8px; background: rgba(203,166,247,0.3); border: none; border-radius: 5px; color: #1e1e2e; cursor: pointer; font-size: 12px; font-weight: 500;';
                     loraBtn.onclick = () => {
                         const input = document.createElement('input');
                         input.type = 'file';
@@ -249,7 +249,6 @@ app.registerExtension({
                             const file = e.target.files[0];
                             if (!file) return;
                             
-                            // Show progress
                             loraBtn.textContent = '⏳ 0%';
                             loraBtn.disabled = true;
                             
@@ -303,15 +302,15 @@ app.registerExtension({
                     
                     // Settings section
                     const settingsSection = document.createElement('div');
-                    settingsSection.style.cssText = 'margin-top: 10px; padding-top: 10px; border-top: 1px solid #333;';
+                    settingsSection.style.cssText = 'margin-top: 14px; padding-top: 14px; border-top: 1px solid #444;';
                     
                     // Per page setting
                     const perPageRow = document.createElement('div');
-                    perPageRow.style.cssText = 'display: flex; align-items: center; gap: 6px; margin-bottom: 8px;';
-                    perPageRow.innerHTML = '<span style="font-size: 10px; color: #888;">Per page:</span>';
+                    perPageRow.style.cssText = 'display: flex; align-items: center; gap: 8px; margin-bottom: 12px;';
+                    perPageRow.innerHTML = '<span style="font-size: 12px; color: #888;">Per page:</span>';
                     
                     const perPageSelect = document.createElement('select');
-                    perPageSelect.style.cssText = 'padding: 3px; background: #333; border: 1px solid #444; border-radius: 3px; color: #fff; font-size: 10px;';
+                    perPageSelect.style.cssText = 'padding: 6px; background: #333; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 12px;';
                     [4, 8, 12, 16, 24].forEach(n => {
                         const opt = document.createElement('option');
                         opt.value = n;
@@ -325,26 +324,26 @@ app.registerExtension({
                     // Management header
                     const mgmtHeader = document.createElement('div');
                     mgmtHeader.textContent = '⚙️ Categories & Models';
-                    mgmtHeader.style.cssText = 'font-size: 11px; color: #89b4fa; margin-bottom: 8px; font-weight: bold;';
+                    mgmtHeader.style.cssText = 'font-size: 13px; color: #89b4fa; margin-bottom: 10px; font-weight: bold;';
                     settingsSection.appendChild(mgmtHeader);
                     
                     // Categories
                     const catMgmt = document.createElement('div');
-                    catMgmt.style.cssText = 'margin-bottom: 8px;';
-                    catMgmt.innerHTML = '<div style="font-size: 9px; color: #666; margin-bottom: 3px;">Categories:</div>';
+                    catMgmt.style.cssText = 'margin-bottom: 10px;';
+                    catMgmt.innerHTML = '<div style="font-size: 11px; color: #666; margin-bottom: 4px;">Categories:</div>';
                     const catChips = document.createElement('div');
-                    catChips.style.cssText = 'display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 4px;';
+                    catChips.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px;';
                     catMgmt.appendChild(catChips);
                     
                     const catAddRow = document.createElement('div');
-                    catAddRow.style.cssText = 'display: flex; gap: 3px;';
+                    catAddRow.style.cssText = 'display: flex; gap: 4px;';
                     const catInput = document.createElement('input');
                     catInput.placeholder = 'New category...';
-                    catInput.style.cssText = 'flex: 1; padding: 3px 6px; background: #333; border: 1px solid #444; border-radius: 3px; color: #fff; font-size: 10px;';
+                    catInput.style.cssText = 'flex: 1; padding: 6px 8px; background: #333; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 12px;';
                     catAddRow.appendChild(catInput);
                     const catAddBtn = document.createElement('button');
                     catAddBtn.textContent = '+';
-                    catAddBtn.style.cssText = 'padding: 3px 8px; background: #89b4fa; border: none; border-radius: 3px; color: #1e1e2e; font-weight: bold; cursor: pointer;';
+                    catAddBtn.style.cssText = 'padding: 6px 12px; background: #89b4fa; border: none; border-radius: 4px; color: #1e1e2e; font-weight: bold; cursor: pointer;';
                     catAddBtn.onclick = async () => {
                         if (catInput.value.trim()) {
                             await psApi('/categories', { method: 'POST', body: JSON.stringify({ name: catInput.value.trim() }) });
@@ -358,20 +357,20 @@ app.registerExtension({
                     
                     // Models
                     const modelMgmt = document.createElement('div');
-                    modelMgmt.innerHTML = '<div style="font-size: 9px; color: #666; margin-bottom: 3px;">Models:</div>';
+                    modelMgmt.innerHTML = '<div style="font-size: 11px; color: #666; margin-bottom: 4px;">Models:</div>';
                     const modelChips = document.createElement('div');
-                    modelChips.style.cssText = 'display: flex; flex-wrap: wrap; gap: 3px; margin-bottom: 4px;';
+                    modelChips.style.cssText = 'display: flex; flex-wrap: wrap; gap: 4px; margin-bottom: 6px;';
                     modelMgmt.appendChild(modelChips);
                     
                     const modelAddRow = document.createElement('div');
-                    modelAddRow.style.cssText = 'display: flex; gap: 3px;';
+                    modelAddRow.style.cssText = 'display: flex; gap: 4px;';
                     const modelInput = document.createElement('input');
                     modelInput.placeholder = 'New model...';
-                    modelInput.style.cssText = 'flex: 1; padding: 3px 6px; background: #333; border: 1px solid #444; border-radius: 3px; color: #fff; font-size: 10px;';
+                    modelInput.style.cssText = 'flex: 1; padding: 6px 8px; background: #333; border: 1px solid #444; border-radius: 4px; color: #fff; font-size: 12px;';
                     modelAddRow.appendChild(modelInput);
                     const modelAddBtn = document.createElement('button');
                     modelAddBtn.textContent = '+';
-                    modelAddBtn.style.cssText = 'padding: 3px 8px; background: #89b4fa; border: none; border-radius: 3px; color: #1e1e2e; font-weight: bold; cursor: pointer;';
+                    modelAddBtn.style.cssText = 'padding: 6px 12px; background: #89b4fa; border: none; border-radius: 4px; color: #1e1e2e; font-weight: bold; cursor: pointer;';
                     modelAddBtn.onclick = async () => {
                         if (modelInput.value.trim()) {
                             await psApi('/models', { method: 'POST', body: JSON.stringify({ name: modelInput.value.trim() }) });
@@ -393,12 +392,68 @@ app.registerExtension({
                     let currentTag = savedState.tag || 'All';
                     let currentPage = 1;
                     let perPage = savedState.perPage || 8;
-                    let totalPrompts = 0;
                     let selectedPromptId = null;
                     let selectedPromptText = '';
+                    let allCategories = [];
+                    let allModels = [];
                     
                     const persistState = () => {
                         saveState({ search: currentSearch, category: currentCategory, model: currentModel, tag: currentTag, perPage });
+                    };
+                    
+                    // Show edit modal
+                    const showEditModal = (prompt) => {
+                        const overlay = document.createElement('div');
+                        overlay.style.cssText = 'position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); z-index: 10000; display: flex; align-items: center; justify-content: center;';
+                        
+                        const modal = document.createElement('div');
+                        modal.style.cssText = 'background: #2a2a3a; border-radius: 12px; padding: 20px; width: 350px; max-width: 90%;';
+                        
+                        modal.innerHTML = `
+                            <h3 style="margin: 0 0 16px 0; color: #cba6f7; font-size: 16px;">Edit Prompt</h3>
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 4px;">Category</label>
+                                <select id="edit-category" style="width: 100%; padding: 8px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px;">
+                                    <option value="">None</option>
+                                    ${allCategories.map(c => `<option value="${c}" ${prompt.category === c ? 'selected' : ''}>${c}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div style="margin-bottom: 12px;">
+                                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 4px;">Model</label>
+                                <select id="edit-model" style="width: 100%; padding: 8px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px;">
+                                    <option value="">None</option>
+                                    ${allModels.map(m => `<option value="${m}" ${prompt.model === m ? 'selected' : ''}>${m}</option>`).join('')}
+                                </select>
+                            </div>
+                            <div style="margin-bottom: 16px;">
+                                <label style="display: block; font-size: 12px; color: #888; margin-bottom: 4px;">Tags (comma separated)</label>
+                                <input id="edit-tags" type="text" value="${(prompt.tags || []).join(', ')}" style="width: 100%; padding: 8px; background: #333; border: 1px solid #444; border-radius: 6px; color: #fff; font-size: 13px; box-sizing: border-box;">
+                            </div>
+                            <div style="display: flex; gap: 8px;">
+                                <button id="edit-cancel" style="flex: 1; padding: 10px; background: rgba(255,255,255,0.1); border: none; border-radius: 6px; color: #fff; cursor: pointer; font-size: 13px;">Cancel</button>
+                                <button id="edit-save" style="flex: 1; padding: 10px; background: #89b4fa; border: none; border-radius: 6px; color: #1e1e2e; font-weight: bold; cursor: pointer; font-size: 13px;">Save</button>
+                            </div>
+                        `;
+                        
+                        overlay.appendChild(modal);
+                        document.body.appendChild(overlay);
+                        
+                        overlay.onclick = (e) => { if (e.target === overlay) overlay.remove(); };
+                        modal.querySelector('#edit-cancel').onclick = () => overlay.remove();
+                        modal.querySelector('#edit-save').onclick = async () => {
+                            const category = modal.querySelector('#edit-category').value;
+                            const model = modal.querySelector('#edit-model').value;
+                            const tags = modal.querySelector('#edit-tags').value;
+                            
+                            await psApi(`/prompts/${prompt.id}`, {
+                                method: 'PUT',
+                                body: JSON.stringify({ category, model, tags })
+                            });
+                            
+                            overlay.remove();
+                            toast('Saved!', 'success');
+                            loadData();
+                        };
                     };
                     
                     // Load data
@@ -406,12 +461,12 @@ app.registerExtension({
                         const statsRes = await psApi('/stats');
                         if (statsRes.success) {
                             stats.textContent = `📝 ${statsRes.stats.total} | ⭐ ${statsRes.stats.rated} | 🖼 ${statsRes.stats.with_thumbnail}`;
-                            totalPrompts = statsRes.stats.total;
                         }
                         
                         // Categories
                         const catRes = await psApi('/categories');
                         if (catRes.success) {
+                            allCategories = catRes.categories;
                             catSelect.innerHTML = '<option value="All">All Categories</option>' + 
                                 catRes.categories.map(c => `<option value="${c}">${c}</option>`).join('');
                             catSelect.value = currentCategory;
@@ -419,7 +474,7 @@ app.registerExtension({
                             catChips.innerHTML = '';
                             catRes.categories.forEach(c => {
                                 const chip = document.createElement('span');
-                                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; background: rgba(203,166,247,0.15); color: #cba6f7; border-radius: 3px; font-size: 9px;';
+                                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(203,166,247,0.15); color: #cba6f7; border-radius: 4px; font-size: 11px;';
                                 chip.innerHTML = `${c} <span style="cursor: pointer; opacity: 0.7;">×</span>`;
                                 chip.querySelector('span').onclick = async (e) => {
                                     e.stopPropagation();
@@ -433,6 +488,7 @@ app.registerExtension({
                         // Models
                         const modelRes = await psApi('/models');
                         if (modelRes.success) {
+                            allModels = modelRes.models;
                             modelSelect.innerHTML = '<option value="All">All Models</option>' + 
                                 modelRes.models.map(m => `<option value="${m}">${m}</option>`).join('');
                             modelSelect.value = currentModel;
@@ -440,7 +496,7 @@ app.registerExtension({
                             modelChips.innerHTML = '';
                             modelRes.models.forEach(m => {
                                 const chip = document.createElement('span');
-                                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 3px; padding: 2px 5px; background: rgba(250,179,135,0.2); color: #fab387; border-radius: 3px; font-size: 9px;';
+                                chip.style.cssText = 'display: inline-flex; align-items: center; gap: 4px; padding: 4px 8px; background: rgba(250,179,135,0.2); color: #fab387; border-radius: 4px; font-size: 11px;';
                                 chip.innerHTML = `${m} <span style="cursor: pointer; opacity: 0.7;">×</span>`;
                                 chip.querySelector('span').onclick = async (e) => {
                                     e.stopPropagation();
@@ -459,19 +515,19 @@ app.registerExtension({
                             tagSelect.value = currentTag;
                         }
                         
-                        // Prompts with pagination
+                        // Prompts
                         const params = new URLSearchParams();
                         if (currentSearch) params.append('search', currentSearch);
                         if (currentCategory !== 'All') params.append('category', currentCategory);
                         if (currentModel !== 'All') params.append('model', currentModel);
                         if (currentTag !== 'All') params.append('tag', currentTag);
-                        params.append('limit', '500'); // Get all for client-side pagination
+                        params.append('limit', '500');
                         
                         const promptsRes = await psApi(`/prompts?${params}`);
                         resultsList.innerHTML = '';
                         
                         if (!promptsRes.success || !promptsRes.prompts?.length) {
-                            resultsList.innerHTML = '<div style="text-align: center; padding: 20px; color: #666; font-size: 11px;">No prompts found</div>';
+                            resultsList.innerHTML = '<div style="text-align: center; padding: 30px; color: #666; font-size: 13px;">No prompts found</div>';
                             paginationRow.innerHTML = '';
                             return;
                         }
@@ -483,10 +539,10 @@ app.registerExtension({
                         const startIdx = (currentPage - 1) * perPage;
                         const pagePrompts = allPrompts.slice(startIdx, startIdx + perPage);
                         
-                        // Render prompts
+                        // Render prompts - FULL TEXT, variable height
                         pagePrompts.forEach(p => {
                             const card = document.createElement('div');
-                            card.style.cssText = `display: flex; gap: 8px; background: rgba(255,255,255,0.03); border: 1px solid ${selectedPromptId === p.id ? '#cba6f7' : 'rgba(255,255,255,0.08)'}; border-radius: 6px; padding: 8px; margin-bottom: 6px; cursor: pointer;`;
+                            card.style.cssText = `display: flex; gap: 10px; background: rgba(255,255,255,0.03); border: 2px solid ${selectedPromptId === p.id ? '#cba6f7' : 'rgba(255,255,255,0.08)'}; border-radius: 8px; padding: 12px; margin-bottom: 10px; cursor: pointer; transition: border-color 0.15s;`;
                             
                             card.onclick = () => {
                                 selectedPromptId = p.id;
@@ -501,39 +557,59 @@ app.registerExtension({
                             
                             // Tags row
                             const topRow = document.createElement('div');
-                            topRow.style.cssText = 'display: flex; gap: 3px; margin-bottom: 4px; flex-wrap: wrap;';
+                            topRow.style.cssText = 'display: flex; gap: 4px; margin-bottom: 8px; flex-wrap: wrap; align-items: center;';
                             
                             if (p.model) {
                                 const tag = document.createElement('span');
-                                tag.style.cssText = 'background: rgba(250,179,135,0.2); color: #fab387; padding: 1px 4px; border-radius: 3px; font-size: 8px;';
+                                tag.style.cssText = 'background: rgba(250,179,135,0.2); color: #fab387; padding: 2px 6px; border-radius: 4px; font-size: 10px;';
                                 tag.textContent = p.model;
                                 topRow.appendChild(tag);
                             }
                             if (p.category) {
                                 const tag = document.createElement('span');
-                                tag.style.cssText = 'background: rgba(203,166,247,0.15); color: #cba6f7; padding: 1px 4px; border-radius: 3px; font-size: 8px;';
+                                tag.style.cssText = 'background: rgba(203,166,247,0.15); color: #cba6f7; padding: 2px 6px; border-radius: 4px; font-size: 10px;';
                                 tag.textContent = p.category;
                                 topRow.appendChild(tag);
                             }
+                            if (p.tags && p.tags.length) {
+                                p.tags.forEach(t => {
+                                    const tag = document.createElement('span');
+                                    tag.style.cssText = 'background: rgba(137,180,250,0.15); color: #89b4fa; padding: 2px 6px; border-radius: 4px; font-size: 10px;';
+                                    tag.textContent = t;
+                                    topRow.appendChild(tag);
+                                });
+                            }
+                            
+                            // Edit button
+                            const editBtn = document.createElement('span');
+                            editBtn.textContent = '✏️';
+                            editBtn.title = 'Edit';
+                            editBtn.style.cssText = 'cursor: pointer; margin-left: auto; font-size: 12px; opacity: 0.6;';
+                            editBtn.onclick = (e) => {
+                                e.stopPropagation();
+                                showEditModal(p);
+                            };
+                            topRow.appendChild(editBtn);
+                            
                             content.appendChild(topRow);
                             
-                            // Text
+                            // FULL TEXT - no truncation
                             const textDiv = document.createElement('div');
-                            textDiv.style.cssText = 'font-size: 10px; color: #bac2de; max-height: 32px; overflow: hidden; margin-bottom: 4px; line-height: 1.3;';
-                            textDiv.textContent = p.text.substring(0, 100) + (p.text.length > 100 ? '...' : '');
+                            textDiv.style.cssText = 'font-size: 13px; color: #cdd6f4; line-height: 1.5; margin-bottom: 8px; word-break: break-word;';
+                            textDiv.textContent = p.text;
                             content.appendChild(textDiv);
                             
-                            // Bottom row
+                            // Bottom row - stars + delete
                             const bottomRow = document.createElement('div');
-                            bottomRow.style.cssText = 'display: flex; align-items: center; gap: 4px;';
+                            bottomRow.style.cssText = 'display: flex; align-items: center; gap: 6px;';
                             
                             // Stars
                             const starsDiv = document.createElement('span');
-                            starsDiv.style.cssText = 'color: #f9e2af; font-size: 10px; margin-left: auto;';
+                            starsDiv.style.cssText = 'color: #f9e2af; font-size: 14px;';
                             for (let i = 1; i <= 5; i++) {
                                 const star = document.createElement('span');
                                 star.textContent = '★';
-                                star.style.cssText = `cursor: pointer; opacity: ${i <= (p.rating || 0) ? 1 : 0.3};`;
+                                star.style.cssText = `cursor: pointer; opacity: ${i <= (p.rating || 0) ? 1 : 0.3}; transition: opacity 0.1s;`;
                                 star.onclick = async (e) => {
                                     e.stopPropagation();
                                     await psApi(`/prompts/${p.id}/rate`, { method: 'POST', body: JSON.stringify({ rating: i === p.rating ? 0 : i }) });
@@ -543,13 +619,18 @@ app.registerExtension({
                             }
                             bottomRow.appendChild(starsDiv);
                             
+                            // Spacer
+                            const spacer = document.createElement('span');
+                            spacer.style.cssText = 'flex: 1;';
+                            bottomRow.appendChild(spacer);
+                            
                             // Delete
                             const delBtn = document.createElement('span');
-                            delBtn.textContent = '🗑';
-                            delBtn.style.cssText = 'cursor: pointer; opacity: 0.5; font-size: 10px;';
+                            delBtn.textContent = '🗑️';
+                            delBtn.style.cssText = 'cursor: pointer; opacity: 0.5; font-size: 14px;';
                             delBtn.onclick = async (e) => {
                                 e.stopPropagation();
-                                if (confirm('Delete?')) {
+                                if (confirm('Delete this prompt?')) {
                                     await psApi(`/prompts/${p.id}`, { method: 'DELETE' });
                                     loadData();
                                 }
@@ -560,43 +641,38 @@ app.registerExtension({
                             card.appendChild(content);
                             
                             // Thumbnail
-                            const thumbDiv = document.createElement('div');
-                            thumbDiv.style.cssText = 'width: 50px; height: 50px; background: rgba(255,255,255,0.05); border-radius: 4px; flex-shrink: 0; overflow: hidden; display: flex; align-items: center; justify-content: center;';
-                            
                             if (p.thumbnail) {
+                                const thumbDiv = document.createElement('div');
+                                thumbDiv.style.cssText = 'width: 70px; height: 70px; background: rgba(255,255,255,0.05); border-radius: 6px; flex-shrink: 0; overflow: hidden;';
                                 const img = document.createElement('img');
                                 img.src = `data:image/jpeg;base64,${p.thumbnail}`;
                                 img.style.cssText = 'width: 100%; height: 100%; object-fit: cover;';
                                 thumbDiv.appendChild(img);
-                            } else {
-                                thumbDiv.style.color = '#45475a';
-                                thumbDiv.style.fontSize = '16px';
-                                thumbDiv.textContent = '🖼';
+                                card.appendChild(thumbDiv);
                             }
                             
-                            card.appendChild(thumbDiv);
                             resultsList.appendChild(card);
                         });
                         
-                        // Pagination controls
+                        // Pagination
                         paginationRow.innerHTML = '';
                         if (totalPages > 1) {
                             const prevBtn = document.createElement('button');
-                            prevBtn.textContent = '◀';
+                            prevBtn.textContent = '◀ Prev';
                             prevBtn.disabled = currentPage === 1;
-                            prevBtn.style.cssText = 'padding: 3px 8px; background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: #fff; cursor: pointer; font-size: 10px;';
+                            prevBtn.style.cssText = 'padding: 6px 12px; background: rgba(255,255,255,0.1); border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;';
                             prevBtn.onclick = () => { currentPage--; loadData(); };
                             paginationRow.appendChild(prevBtn);
                             
                             const pageInfo = document.createElement('span');
                             pageInfo.textContent = `${currentPage} / ${totalPages}`;
-                            pageInfo.style.cssText = 'color: #888;';
+                            pageInfo.style.cssText = 'color: #888; font-size: 13px;';
                             paginationRow.appendChild(pageInfo);
                             
                             const nextBtn = document.createElement('button');
-                            nextBtn.textContent = '▶';
+                            nextBtn.textContent = 'Next ▶';
                             nextBtn.disabled = currentPage === totalPages;
-                            nextBtn.style.cssText = 'padding: 3px 8px; background: rgba(255,255,255,0.1); border: none; border-radius: 3px; color: #fff; cursor: pointer; font-size: 10px;';
+                            nextBtn.style.cssText = 'padding: 6px 12px; background: rgba(255,255,255,0.1); border: none; border-radius: 4px; color: #fff; cursor: pointer; font-size: 12px;';
                             nextBtn.onclick = () => { currentPage++; loadData(); };
                             paginationRow.appendChild(nextBtn);
                         }
@@ -713,7 +789,6 @@ app.registerExtension({
                 const textWidget = this.widgets?.find(w => w.name === 'text');
                 const nodeId = this.id;
                 
-                // Reset for THIS specific node only
                 const resetForNew = async () => {
                     await psApi('/reset-last-saved', { 
                         method: 'POST', 
@@ -727,14 +802,14 @@ app.registerExtension({
                         textWidget.value = text;
                         await resetForNew();
                         app.graph.setDirtyCanvas(true);
-                        toast('Pasted! NEW', 'info');
+                        toast('Pasted! Next = NEW', 'info');
                     }
                 } else if (index === 1) { // Clear
                     if (textWidget) {
                         textWidget.value = '';
                         await resetForNew();
                         app.graph.setDirtyCanvas(true);
-                        toast('Cleared! NEW', 'info');
+                        toast('Cleared! Next = NEW', 'info');
                     }
                 } else if (index === 2) { // Mark NEW
                     await resetForNew();
@@ -776,7 +851,7 @@ app.registerExtension({
                 
                 const dlBtn = document.createElement('button');
                 dlBtn.textContent = '📥 Download Workflow JSON';
-                dlBtn.style.cssText = 'width: 100%; padding: 6px; background: linear-gradient(135deg, #89b4fa, #74c7ec); border: none; border-radius: 4px; color: #1e1e2e; font-weight: 600; cursor: pointer; font-size: 11px;';
+                dlBtn.style.cssText = 'width: 100%; padding: 8px; background: linear-gradient(135deg, #89b4fa, #74c7ec); border: none; border-radius: 4px; color: #1e1e2e; font-weight: 600; cursor: pointer; font-size: 12px;';
                 dlBtn.onclick = () => toast('Check prompts output', 'info');
                 btnContainer.appendChild(dlBtn);
                 

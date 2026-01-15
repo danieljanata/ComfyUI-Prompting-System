@@ -211,6 +211,40 @@ class PromptDB:
             return True
         return False
     
+    def get_all_last_saved_ids(self):
+        """Get all recently saved prompt IDs (for thumbnail assignment)"""
+        if not hasattr(self, '_saver_last_ids'):
+            return []
+        return list(self._saver_last_ids.values())
+    
+    def update_prompt(self, pid, model=None, category=None, tags=None):
+        """Update prompt metadata"""
+        if pid not in self.data["prompts"]:
+            return False
+        
+        p = self.data["prompts"][pid]
+        
+        if model is not None:
+            p["model"] = model if model and model != "none" else None
+        
+        if category is not None:
+            p["category"] = category if category and category != "none" else None
+        
+        if tags is not None:
+            tag_list = []
+            if tags:
+                for t in tags.split(","):
+                    t = t.strip().lower()
+                    if t:
+                        tag_list.append(t)
+                        if t not in self.data["tags"]:
+                            self.data["tags"].append(t)
+            p["tags"] = tag_list
+        
+        p["updated_at"] = datetime.now().isoformat()
+        self._save()
+        return True
+    
     def get_categories(self):
         return self.data.get("categories", [])
     
@@ -348,7 +382,7 @@ def create_thumbnail(image_path, size=64):
 
 
 def capture_last_output_image():
-    """Find most recent image in output dir and create thumbnail for last saved prompt"""
+    """Find most recent image in output dir and create thumbnail for all recently saved prompts"""
     try:
         output_dir = folder_paths.get_output_directory()
         latest = None
@@ -362,11 +396,16 @@ def capture_last_output_image():
                     latest_time = mt
                     latest = fp
         
-        if latest and db.get_last_saved_id():
-            thumb = create_thumbnail(latest, 64)
-            if thumb:
-                db.set_thumbnail(db.get_last_saved_id(), thumb)
-                return True
+        if latest:
+            # Get all recently saved prompt IDs
+            recent_ids = db.get_all_last_saved_ids()
+            if recent_ids:
+                thumb = create_thumbnail(latest, 64)
+                if thumb:
+                    for pid in recent_ids:
+                        db.set_thumbnail(pid, thumb)
+                    print(f"[PS] Thumbnail assigned to {len(recent_ids)} prompts")
+                    return True
     except Exception as e:
         print(f"[PS] Capture error: {e}")
     return False
@@ -656,6 +695,19 @@ async def ps_rate(request):
 @routes.delete("/ps/prompts/{pid}")
 async def ps_delete(request):
     return web.json_response({"success": db.delete_prompt(request.match_info["pid"])})
+
+@routes.put("/ps/prompts/{pid}")
+async def ps_update(request):
+    """Update prompt metadata (model, category, tags)"""
+    data = await request.json()
+    pid = request.match_info["pid"]
+    success = db.update_prompt(
+        pid,
+        model=data.get("model"),
+        category=data.get("category"),
+        tags=data.get("tags")
+    )
+    return web.json_response({"success": success})
 
 @routes.get("/ps/export")
 async def ps_export(request):
